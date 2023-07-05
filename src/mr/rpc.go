@@ -9,13 +9,28 @@ package mr
 // and reply for an RPC.
 //
 
-type ExampleArgs struct {
-	X int
+type ResponseType int32
+
+const (
+	// worker heartbeat response type
+	ResponseTypeComplete = 0
+	ResponseTypeMap      = 1
+	ResponseTypeReduce   = 2
+	ResponseTypeWait     = 3
+)
+
+type WorkerArgs struct {
+	MapTaskID    int
+	ReduceTaskID int
 }
 
-type ExampleReply struct {
-	Y int
+type WorkerReply struct {
+	Type ResponseType
+
+	// metadata
+	NMap    int
+	NReduce int
+
+	// task
+	Task *Task
 }
-
-// Add your RPC definitions here.
-
