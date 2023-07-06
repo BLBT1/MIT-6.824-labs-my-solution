@@ -6,13 +6,16 @@ package main
 // go build -buildmode=plugin nocrash.go
 //
 
-import "mr"
-import crand "crypto/rand"
-import "math/big"
-import "strings"
-import "os"
-import "sort"
-import "strconv"
+import (
+	crand "crypto/rand"
+	"math/big"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/BLBT1/MIT-6.824-labs-my-solution/src/mr"
+)
 
 func maybeCrash() {
 	max := big.NewInt(1000)

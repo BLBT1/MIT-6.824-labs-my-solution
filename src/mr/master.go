@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+	"os"
 	"sync"
 	"time"
 )
@@ -96,6 +97,7 @@ func (m *Master) HandleHeartbeat(args *WorkerArgs, reply *WorkerReply) error {
 		// TODO: may need other info in reply
 		reply.Task = m.mapTaskList.tasks[toAssign]
 		reply.Type = ResponseTypeMap
+		reply.NMap = m.nMap
 		reply.NReduce = m.nReduce
 		m.mapTaskList.tasks[toAssign].Status = taskPending
 		m.mapTaskList.mu.Unlock()
@@ -119,6 +121,7 @@ func (m *Master) HandleHeartbeat(args *WorkerArgs, reply *WorkerReply) error {
 		}
 		reply.Task = m.reduceTaskList.tasks[toAssign]
 		reply.Type = ResponseTypeReduce
+		reply.NMap = m.nMap
 		reply.NReduce = m.nReduce
 		m.reduceTaskList.tasks[toAssign].Status = taskPending
 		m.reduceTaskList.mu.Unlock()
@@ -148,8 +151,8 @@ func (m *Master) HandleTaskComplete(args *WorkerArgs, reply *WorkerReply) error 
 	} else if args.MapTaskID == -1 {
 		// a reduce task is complete
 		m.reduceTaskList.mu.Lock()
-		m.complete.mapCompleted += 1
-		m.reduceTaskList.tasks[args.MapTaskID].Status = taskComplete
+		m.complete.reduceCompleted += 1
+		m.reduceTaskList.tasks[args.ReduceTaskID].Status = taskComplete
 		m.reduceTaskList.mu.Unlock()
 	} else {
 		log.Fatal("invalid task complete rpc")
@@ -161,9 +164,9 @@ func (m *Master) HandleTaskComplete(args *WorkerArgs, reply *WorkerReply) error 
 func (m *Master) server() {
 	rpc.Register(m)
 	rpc.HandleHTTP()
-	l, e := net.Listen("tcp", "127.0.0.1"+":1234")
-	//os.Remove("mr-socket")
-	//l, e := net.Listen("unix", "mr-socket")
+	//l, e := net.Listen("tcp", "127.0.0.1"+":1234")
+	os.Remove("mr-socket")
+	l, e := net.Listen("unix", "mr-socket")
 	if e != nil {
 		log.Fatal("listen error:", e)
 	}
@@ -173,11 +176,8 @@ func (m *Master) server() {
 // main/mrmaster.go calls Done() periodically to find out
 // if the entire job has finished.
 func (m *Master) Done() bool {
-	res := false
 	m.complete.mu.Lock()
-	if m.complete.mapCompleted == m.nMap {
-		log.Printf("all %v map tasks are complete", m.complete.mapCompleted)
-	}
+	res := m.complete.reduceCompleted == m.nReduce
 	m.complete.mu.Unlock()
 	return res
 }
@@ -189,7 +189,6 @@ func MakeMaster(files []string, nReduce int) *Master {
 		nReduce: nReduce,
 	}
 	m.mapTaskList = makeTaskList(m.nMap, files)
-	// TODO: reduce input filenames
 	m.reduceTaskList = makeTaskList(m.nReduce, nil)
 	m.server()
 	return &m
